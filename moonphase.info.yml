@@ -1,0 +1,7 @@
+name: Moon Phase
+type: module
+description: 'Displays the moon phase for content dates and the current moon in a block.'
+package: Custom
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:node

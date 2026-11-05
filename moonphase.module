@@ -1,0 +1,37 @@
+<?php
+
+/**
+ * @file
+ * Content-date moon phase integration.
+ */
+
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_entity_extra_field_info().
+ */
+function moonphase_entity_extra_field_info(): array {
+  $fields = [];
+  foreach (\Drupal::entityTypeManager()->getStorage('node_type')->loadMultiple() as $type) {
+    $fields['node'][$type->id()]['display']['moonphase'] = [
+      'label' => t('Moon phase on content date'),
+      'description' => t('Moon phase calculated from the Authored on timestamp.'),
+      'weight' => 10,
+      'visible' => FALSE,
+    ];
+  }
+  return $fields;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_view() for nodes.
+ */
+function moonphase_node_view(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, $view_mode): void {
+  if ($entity instanceof NodeInterface && $display->getComponent('moonphase')) {
+    $build['moonphase'] = \Drupal::service('moonphase.renderer')->build((int) $entity->getCreatedTime());
+    // The node render array supplies its cache tags and display configuration.
+    $build['moonphase']['#cache']['tags'] = $entity->getCacheTags();
+  }
+}

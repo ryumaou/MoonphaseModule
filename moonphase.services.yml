@@ -1,0 +1,6 @@
+services:
+  moonphase.calculator:
+    class: Drupal\moonphase\MoonPhaseCalculator
+  moonphase.renderer:
+    class: Drupal\moonphase\MoonPhaseRenderer
+    arguments: ['@moonphase.calculator', '@extension.list.module', '@string_translation']
