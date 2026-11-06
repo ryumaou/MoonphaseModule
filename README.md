@@ -52,15 +52,3 @@ phase name, GIF filename, full-moon-relative cycle position, illumination percen
 and days until the next full, new, first-quarter, and third-quarter moons.
 An exact phase instant counts the following cycle as the next occurrence.
 The weekly helper uses seven fixed 24-hour steps rather than local calendar days.
-
-## Verification
-
-Run the standalone numerical regression checks with PHP 8.1 or later:
-
-```sh
-php tests/calculator.php
-```
-
-Before deployment, enable the module on a Drupal site and check block discovery,
-image URLs (including subdirectory installations), translated labels, content
-display modes, edited Authored on dates, and anonymous page-cache behavior.
