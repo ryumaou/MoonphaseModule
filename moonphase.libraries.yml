@@ -1,0 +1,4 @@
+block:
+  css:
+    component:
+      css/moonphase-block.css: {}

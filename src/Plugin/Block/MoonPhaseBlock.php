@@ -37,7 +37,10 @@ final class MoonPhaseBlock extends BlockBase implements ContainerFactoryPluginIn
   }
 
   public function build(): array {
-    return $this->renderer->build($this->time->getRequestTime());
+    $build = $this->renderer->build($this->time->getRequestTime());
+    $build['#attributes']['class'][] = 'moonphase--block';
+    $build['#attached']['library'][] = 'moonphase/block';
+    return $build;
   }
 
   public function getCacheMaxAge(): int {
