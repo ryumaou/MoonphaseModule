@@ -1,3 +1,17 @@
-.moonphase--block {
+.moonphase-block,
+.moonphase-block > h2,
+.moonphase-block > .block__title,
+.moonphase--block,
+.moonphase--block > p {
   text-align: center;
+}
+
+.moonphase--block {
+  width: 100%;
+}
+
+.moonphase--block > img {
+  display: block;
+  float: none;
+  margin-inline: auto;
 }

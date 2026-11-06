@@ -10,6 +10,16 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\node\NodeInterface;
 
 /**
+ * Implements hook_preprocess_block().
+ */
+function moonphase_preprocess_block(array &$variables): void {
+  if (($variables['elements']['#plugin_id'] ?? '') === 'moonphase_current') {
+    $variables['attributes']['class'][] = 'moonphase-block';
+    $variables['#attached']['library'][] = 'moonphase/block';
+  }
+}
+
+/**
  * Implements hook_entity_extra_field_info().
  */
 function moonphase_entity_extra_field_info(): array {
