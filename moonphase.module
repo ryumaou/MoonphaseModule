@@ -40,7 +40,7 @@ function moonphase_entity_extra_field_info(): array {
  */
 function moonphase_node_view(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, $view_mode): void {
   if ($entity instanceof NodeInterface && $display->getComponent('moonphase')) {
-    $build['moonphase'] = \Drupal::service('moonphase.renderer')->build((int) $entity->getCreatedTime());
+    $build['moonphase'] = \Drupal::service('moonphase.renderer')->build((int) $entity->getCreatedTime(), TRUE);
     // The node render array supplies its cache tags and display configuration.
     $build['moonphase']['#cache']['tags'] = $entity->getCacheTags();
   }

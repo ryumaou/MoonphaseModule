@@ -22,8 +22,10 @@ see `LICENSE`.
 The content component uses Drupal's **Authored on** timestamp, including edits
 to that date. It calculates the phase when rendering; no extra database field,
 manual post updates, external API, WordPress installation, or cron job is needed.
-The image, phase name, illumination, and days to the next full moon are visible
-as text, with alternative text and an image tooltip.
+The content-date component displays a sentence such as
+"Under a waxing crescent moon." The current-moon block displays the image, phase name,
+illumination, and days to the next full moon, with alternative text and an
+image tooltip.
 
 ## Calculation and caching
 
