@@ -1,7 +1,7 @@
 # Moon Phase for Drupal
 
 A Drupal 10.3 / 11 port of `WP_Moonphase_plugin` by J. K. Hoffman,
-with the original eight GIF images and the lunar calculation credited to
+with the original eight GIF images. The original lunar calculation was credited to
 Dan Sheeler and Kumar McMillan. Distributed under the original GPL license;
 see `LICENSE`.
 
@@ -29,11 +29,13 @@ image tooltip.
 
 ## Calculation and caching
 
-This preserves the original approximate 29.53058867-day cycle anchored at
-August 22, 2002, 22:29 UTC. It fixes PHP's integer modulo truncation by using
-`fmod()` and closes an uncovered interval in the legacy phase thresholds.
-Results may drift from astronomical ephemerides; use this for decorative or
-informational display. The images retain their original orientation.
+The calculator estimates the angular separation of the Moon and Sun using
+[Paul Schlyter's orbital model](https://www.stjarnhimlen.se/comp/ppcomp.html),
+including corrections for changes in the Moon's orbit. It uses the same model
+to estimate the time until each principal phase. The four principal phase
+labels each cover about 9.4 degrees on either side of their exact alignment.
+The model is approximate and intended for display. The images retain their
+original orientation.
 
 Content-date output uses normal node/display caching. The current-moon block
 has cache max-age zero so Drupal's render cache does not freeze its date.

@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace Drupal\moonphase;
 
 /**
- * Approximate lunar cycle adapted from the original MoonPhase WP plugin.
- *
- * Original calculation: Dan Sheeler, Kumar McMillan, and J. K. Hoffman.
- * This mean-period model is intended for display, not astronomical prediction.
+ * Estimates lunar phases from the geocentric longitudes of the Sun and Moon.
  */
 final class MoonPhaseCalculator {
 
   public const PERIOD_DAYS = 29.53058867;
   public const DAY_SECONDS = 86400;
-  // August 22, 2002, 22:29 UTC, the original full-moon reference.
+  // Retained for callers of the original calculator.
   public const REFERENCE_FULL_MOON = 1030055340;
+  private const PHASE_WINDOW = 0.026;
 
   public const NAMES = [
     'New Moon', 'Waxing Crescent', 'First Quarter Moon', 'Waxing Gibbous',
@@ -28,12 +26,89 @@ final class MoonPhaseCalculator {
   ];
 
   /**
-   * Returns cycle position with zero at full moon, including pre-2002 dates.
+   * Returns the angular fraction of the cycle, with zero at full moon.
    */
   public function getPositionInCycle(int $timestamp): float {
-    $period = self::PERIOD_DAYS * self::DAY_SECONDS;
-    $position = fmod($timestamp - self::REFERENCE_FULL_MOON, $period) / $period;
-    return $position < 0 ? $position + 1 : $position;
+    // Orbital elements and lunar longitude perturbations from Paul Schlyter.
+    // https://www.stjarnhimlen.se/comp/ppcomp.html
+    // The model's epoch is December 31, 1999 at 00:00 UTC.
+    $days = ($timestamp - 946598400) / self::DAY_SECONDS;
+    $sunAnomaly = deg2rad(fmod(356.0470 + 0.9856002585 * $days, 360));
+    $sunPerihelion = deg2rad(282.9404 + 0.0000470935 * $days);
+    $sunMeanLongitude = $sunAnomaly + $sunPerihelion;
+    $sunEccentricity = 0.016709 - 0.000000001151 * $days;
+    $sunLongitude = self::trueAnomaly($sunAnomaly, $sunEccentricity) + $sunPerihelion;
+
+    $moonNode = deg2rad(fmod(125.1228 - 0.0529538083 * $days, 360));
+    $moonPerigee = deg2rad(fmod(318.0634 + 0.1643573223 * $days, 360));
+    $moonAnomaly = deg2rad(fmod(115.3654 + 13.0649929509 * $days, 360));
+    $moonMeanLongitude = $moonNode + $moonPerigee + $moonAnomaly;
+    $argumentOfLatitude = $moonPerigee + self::trueAnomaly($moonAnomaly, 0.054900);
+    $moonLongitude = $moonNode + atan2(
+      cos(deg2rad(5.1454)) * sin($argumentOfLatitude),
+      cos($argumentOfLatitude),
+    );
+
+    $elongation = $moonMeanLongitude - $sunMeanLongitude;
+    $meanArgumentOfLatitude = $moonMeanLongitude - $moonNode;
+    $correction = -1.274 * sin($moonAnomaly - 2 * $elongation)
+      + 0.658 * sin(2 * $elongation)
+      - 0.186 * sin($sunAnomaly)
+      - 0.059 * sin(2 * $moonAnomaly - 2 * $elongation)
+      - 0.057 * sin($moonAnomaly - 2 * $elongation + $sunAnomaly)
+      + 0.053 * sin($moonAnomaly + 2 * $elongation)
+      + 0.046 * sin(2 * $elongation - $sunAnomaly)
+      + 0.041 * sin($moonAnomaly - $sunAnomaly)
+      - 0.035 * sin($elongation)
+      - 0.031 * sin($moonAnomaly + $sunAnomaly)
+      - 0.015 * sin(2 * $meanArgumentOfLatitude - 2 * $elongation)
+      + 0.011 * sin($moonAnomaly - 4 * $elongation);
+
+    return self::wrapCycle((rad2deg($moonLongitude - $sunLongitude) + $correction - 180) / 360);
+  }
+
+  private static function trueAnomaly(float $meanAnomaly, float $eccentricity): float {
+    $eccentricAnomaly = $meanAnomaly;
+    for ($iteration = 0; $iteration < 3; $iteration++) {
+      $eccentricAnomaly -= ($eccentricAnomaly - $eccentricity * sin($eccentricAnomaly) - $meanAnomaly)
+        / (1 - $eccentricity * cos($eccentricAnomaly));
+    }
+    return atan2(
+      sqrt(1 - $eccentricity ** 2) * sin($eccentricAnomaly),
+      cos($eccentricAnomaly) - $eccentricity,
+    );
+  }
+
+  private static function wrapCycle(float $position): float {
+    return $position - floor($position);
+  }
+
+  /**
+   * Unwraps the angular change using elapsed time to distinguish lunations.
+   */
+  private function cycleProgress(int $timestamp, int $elapsed, float $startPosition): float {
+    $change = $this->getPositionInCycle($timestamp + $elapsed) - $startPosition;
+    return $change + round($elapsed / (self::PERIOD_DAYS * self::DAY_SECONDS) - $change);
+  }
+
+  /**
+   * Finds the first whole second at or after the upcoming phase crossing.
+   */
+  private function daysUntilPhase(int $timestamp, float $position, float $target): float {
+    $remaining = self::wrapCycle($target - $position);
+    $remaining = $remaining > 0 ? $remaining : 1;
+    $lower = 0;
+    $upper = 35 * self::DAY_SECONDS;
+    while ($upper - $lower > 1) {
+      $middle = intdiv($lower + $upper, 2);
+      if ($this->cycleProgress($timestamp, $middle, $position) < $remaining) {
+        $lower = $middle;
+      }
+      else {
+        $upper = $middle;
+      }
+    }
+    return $upper / self::DAY_SECONDS;
   }
 
   /**
@@ -43,20 +118,17 @@ final class MoonPhaseCalculator {
    */
   public function calculate(int $timestamp): array {
     $position = $this->getPositionInCycle($timestamp);
-    // Preserve the original thresholds while closing its 0.4739-0.474 gap.
+    // Give each principal phase the same window on either side of its peak.
+    $window = self::PHASE_WINDOW;
     $id = match (TRUE) {
-      $position >= 0.474 && $position <= 0.53 => 0,
-      $position > 0.53 && $position <= 0.724 => 1,
-      $position > 0.724 && $position <= 0.776 => 2,
-      $position > 0.776 && $position < 0.974 => 3,
-      $position >= 0.974 || $position <= 0.026 => 4,
-      $position <= 0.234 => 5,
-      $position <= 0.295 => 6,
-      default => 7,
-    };
-    $days = static function (float $target) use ($position): float {
-      $difference = $target - $position;
-      return ($difference > 0 ? $difference : $difference + 1) * self::PERIOD_DAYS;
+      $position <= $window || $position >= 1 - $window => 4,
+      $position < 0.25 - $window => 5,
+      $position <= 0.25 + $window => 6,
+      $position < 0.5 - $window => 7,
+      $position <= 0.5 + $window => 0,
+      $position < 0.75 - $window => 1,
+      $position <= 0.75 + $window => 2,
+      default => 3,
     };
     return [
       'timestamp' => $timestamp,
@@ -65,10 +137,10 @@ final class MoonPhaseCalculator {
       'image' => self::IMAGES[$id],
       'position' => $position,
       'illumination' => round((1 + cos(2 * M_PI * $position)) * 50, 1),
-      'days_until_full_moon' => round($days(0.0), 2),
-      'days_until_new_moon' => round($days(0.5), 1),
-      'days_until_first_quarter' => round($days(0.75), 1),
-      'days_until_third_quarter' => round($days(0.25), 1),
+      'days_until_full_moon' => round($this->daysUntilPhase($timestamp, $position, 0.0), 2),
+      'days_until_new_moon' => round($this->daysUntilPhase($timestamp, $position, 0.5), 1),
+      'days_until_first_quarter' => round($this->daysUntilPhase($timestamp, $position, 0.75), 1),
+      'days_until_third_quarter' => round($this->daysUntilPhase($timestamp, $position, 0.25), 1),
     ];
   }
 
